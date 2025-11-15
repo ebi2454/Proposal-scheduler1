@@ -1,86 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Proposal Scheduler - Student</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
+    <meta charset="UTF-8">
+    <title>Student Proposal Scheduler</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        form { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; }
+        input { margin-bottom: 10px; padding: 5px; width: 200px; }
+        button { padding: 5px 10px; }
+        #assignedSlot { font-weight: bold; margin-top: 20px; }
+        #allAssignments { margin-top: 30px; }
+    </style>
 </head>
 <body>
-<h1>Student Panel - Proposal Scheduler</h1>
+    <h2>Student Proposal Slot Booking</h2>
 
-<form id="studentForm">
-  <label>Your Name: <input type="text" id="studentName" required></label><br>
-  <label>Partner Name: <input type="text" id="partnerName" required></label><br>
-  <button type="submit">Get Random Slot</button>
-</form>
+    <form id="studentForm">
+        <label>Your Name: <input type="text" id="studentName" required></label>
+        <label>Partner Name: <input type="text" id="partnerName" required></label>
+        <button type="submit">Get Random Slot</button>
+    </form>
 
-<h3>Your Assigned Slot</h3>
-<p id="assignedSlot"></p>
+    <p id="assignedSlot"></p>
+    <div id="allAssignments"></div>
 
-<script>
-  // --- Firebase config ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyDEy8nt5mUtEP-zSAQlVI14OUloe_oAixY",
-    authDomain: "proposal-scheduler1.firebaseapp.com",
-    databaseURL: "https://proposal-scheduler1-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "proposal-scheduler1.firebasestorage.app",
-    messagingSenderId: "111950321382",
-    appId: "1:111950321382:web:0ee3a4be46b15d66fa8d27"
-  };
-  const app = firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+    <script>
+        // استفاده از داده‌های ادمین اگر موجود باشد
+        const schedule = window.adminSchedule || {
+            "2025-11-20": { maxGroups: 3, slots: ["09:00","10:00","11:00"], assignedGroups: [] },
+            "2025-11-21": { maxGroups: 2, slots: ["09:00","10:00"], assignedGroups: [] },
+            "2025-11-22": { maxGroups: 1, slots: ["10:00"], assignedGroups: [] }
+        };
 
-  const form = document.getElementById('studentForm');
-  const assignedSlot = document.getElementById('assignedSlot');
+        const allGroups = [];
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const studentName = document.getElementById('studentName').value.trim();
-    const partnerName = document.getElementById('partnerName').value.trim();
+        document.getElementById('studentForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const studentName = document.getElementById('studentName').value.trim();
+            const partnerName = document.getElementById('partnerName').value.trim();
 
-    if (!studentName || !partnerName) return alert('Both names are required!');
+            if (!studentName || !partnerName) {
+                alert('Both names are required!');
+                return;
+            }
 
-    // --- Get available days ---
-    db.ref('days').once('value', snapshot => {
-      const days = [];
-      snapshot.forEach(daySnap => {
-        const day = daySnap.key;
-        const maxGroups = daySnap.val().maxGroups || 0;
-        const slots = daySnap.val().slots || {};
-        const assignedGroups = daySnap.val().assignedGroups || 0;
-        if (assignedGroups < maxGroups) {
-          days.push({day, slots: Object.values(slots)});
-        }
-      });
+            const availableDays = Object.keys(schedule).filter(day =>
+                schedule[day].assignedGroups.length < schedule[day].maxGroups
+            );
 
-      if (days.length === 0) return alert('No available slots!');
+            if (availableDays.length === 0) {
+                alert('No available slots!');
+                return;
+            }
 
-      // --- Pick random day and slot ---
-      const chosenDay = days[Math.floor(Math.random()  days.length)];
-      const chosenSlot = chosenDay.slots[Math.floor(Math.random()  chosenDay.slots.length)];
+            const chosenDay = availableDays[Math.floor(Math.random()  availableDays.length)];
+            const dayInfo = schedule[chosenDay];
 
-      // --- Save group ---
-      const groupData = {
-        student: studentName,
-        partner: partnerName,
-        day: chosenDay.day,
-        slot: chosenSlot
-      };
+            const availableSlots = dayInfo.slots.filter(slot =>
+                !dayInfo.assignedGroups.includes(slot)
+            );
 
-      // Increment assignedGroups
-      const groupRef = db.ref('groups').push();
-      groupRef.set(groupData);
+            if (availableSlots.length === 0) {
+                alert('No available slots for this day, retry!');
+                return;
+            }
 
-      // Update assignedGroups counter
-      const assignedRef = db.ref('days/' + chosenDay.day + '/assignedGroups');
-      assignedRef.transaction(current => (current || 0) + 1);
+            const chosenSlot = availableSlots[Math.floor(Math.random()  availableSlots.length)];
 
-      assignedSlot.textContent = `Your group slot: ${chosenDay.day} at ${chosenSlot}`;
-      form.reset();
-    });
-  });
-</script>
+            const group = { student: studentName, partner: partnerName, day: chosenDay, slot: chosenSlot };
+            dayInfo.assignedGroups.push(chosenSlot);
+            allGroups.push(group);
+
+            document.getElementById('assignedSlot').textContent =
+                `Your group slot: ${chosenDay} at ${chosenSlot}`;
+
+            const allAssignmentsDiv = document.getElementById('allAssignments');
+            allAssignmentsDiv.innerHTML = "<h3>All Assigned Groups:</h3><ul>" +
+                allGroups.map(g => `<li>${g.student} & ${g.partner}: ${g.day} at ${g.slot}</li>`).join('') +
+                "</ul>";
+
+            e.target.reset();
+        });
+    </script>
 </body>
 </html>
