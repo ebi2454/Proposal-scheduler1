@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Proposal Scheduler</title>
+<style>
+body { font-family: Arial; margin: 40px; }
+input, button, select { padding: 8px; margin: 5px; }
+#admin, #student { border: 1px solid #ccc; padding: 20px; margin-top: 20px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<h2>سیستم نوبت‌دهی رندوم ارائه پروپوزال</h2>
+
+<div id="admin">
+<h3>بخش ادمین – تعریف روزها و ساعات مجاز</h3>
+<textarea id="slots" rows="6" cols="50" placeholder="مثال:
+شنبه 10:00
+شنبه 10:30
+شنبه 11:00
+دوشنبه 9:00
+"></textarea><br>
+<button onclick="saveSlots()">ثبت ساعات</button>
+<p id="adminMsg"></p>
+</div>
+
+<div id="student">
+<h3>بخش دانشجو – دریافت زمان ارائه</h3>
+<input id="fullname" placeholder="نام و نام خانوادگی"><br>
+<input id="stId" placeholder="شماره دانشجویی"><br>
+<button onclick="assign()">دریافت نوبت رندوم</button>
+<p id="result"></p>
+</div>
+
+<script>
+let slotKey = "scheduler_slots";
+let bookedKey = "scheduler_booked";
+
+function saveSlots() {
+    let slots = document.getElementById("slots").value.trim().split("\n");
+    localStorage.setItem(slotKey, JSON.stringify(slots));
+    localStorage.setItem(bookedKey, JSON.stringify([]));
+    document.getElementById("adminMsg").innerHTML = "ساعات ذخیره شد.";
+}
+
+function assign() {
+    let fullname = document.getElementById("fullname").value.trim();
+    let stId = document.getElementById("stId").value.trim();
+
+    if (!fullname || !stId) {
+        document.getElementById("result").innerHTML = "پر کردن همه فیلدها ضروری است.";
+        return;
+    }
+
+    let slots = JSON.parse(localStorage.getItem(slotKey) || "[]");
+    let booked = JSON.parse(localStorage.getItem(bookedKey) || "[]");
+
+    let free = slots.filter(s => !booked.some(b => b.slot === s));
+
+    if (free.length === 0) {
+        document.getElementById("result").innerHTML = "همه زمان‌ها گرفته شده است.";
+        return;
+    }
+
+    let randomSlot = free[Math.floor(Math.random() * free.length)];
+    booked.push({ name: fullname, id: stId, slot: randomSlot });
+    localStorage.setItem(bookedKey, JSON.stringify(booked));
+
+    document.getElementById("result").innerHTML =
+        "نوبت شما ثبت شد:<br><b>" + randomSlot + "</b>";
+}
+</script>
+
+</body>
+</html>
