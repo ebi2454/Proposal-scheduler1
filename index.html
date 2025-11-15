@@ -1,99 +1,69 @@
-<script>
-// --- تعریف روزها و ظرفیت گروه‌ها ---
-const schedule = {
-  "2025-11-20": { maxGroups: 3, slots: ["09:00", "10:00", "11:00"], assignedGroups: 0 },
-  "2025-11-21": { maxGroups: 2, slots: ["09:00", "10:00"], assignedGroups: 0 },
-  "2025-11-22": { maxGroups: 1, slots: ["10:00"], assignedGroups: 0 }
-};
-</script>
-
-<script>
-// --- سایر کدهای index.html که قبلاً بود ---
-</script>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Proposal Scheduler - Admin</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
+    <meta charset="UTF-8">
+    <title>Admin Proposal Scheduler</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input, button { padding: 5px; margin-bottom: 10px; }
+        table { border-collapse: collapse; margin-top: 20px; }
+        td, th { border: 1px solid #ccc; padding: 5px 10px; }
+    </style>
 </head>
 <body>
-<h1>Admin Panel - Proposal Scheduler</h1>
+    <h2>Admin Panel: Set Schedule</h2>
+    <p>Edit days, max groups per day, and available slots:</p>
 
-<h2>Define Available Days and Slots</h2>
-<form id="daySlotForm">
-  <label>Day (YYYY-MM-DD): <input type="date" id="day" required></label><br>
-  <label>Time (HH:MM): <input type="time" id="time" required></label><br>
-  <button type="submit">Add Slot</button>
-</form>
+    <table>
+        <thead>
+            <tr><th>Day</th><th>Max Groups</th><th>Slots (comma separated)</th></tr>
+        </thead>
+        <tbody id="scheduleTable">
+        </tbody>
+    </table>
 
-<h2>Define Daily Capacity</h2>
-<form id="capacityForm">
-  <label>Day (YYYY-MM-DD): <input type="date" id="capDay" required></label><br>
-  <label>Max Groups: <input type="number" id="maxGroups" min="1" required></label><br>
-  <button type="submit">Set Capacity</button>
-</form>
+    <button id="saveSchedule">Save Schedule</button>
 
-<h3>Current Slots and Capacity</h3>
-<ul id="slotsList"></ul>
+    <script>
+        // پیش‌فرض روزها و ساعات
+        let schedule = {
+            "2025-11-20": { maxGroups: 3, slots: ["09:00", "10:00", "11:00"], assignedGroups: [] },
+            "2025-11-21": { maxGroups: 2, slots: ["09:00", "10:00"], assignedGroups: [] },
+            "2025-11-22": { maxGroups: 1, slots: ["10:00"], assignedGroups: [] }
+        };
 
-<script>
-  // --- Firebase config --- 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDEy8nt5mUtEP-zSAQlVI14OUloe_oAixY",
-    authDomain: "proposal-scheduler1.firebaseapp.com",
-    databaseURL: "https://proposal-scheduler1-default-rtdb.firebaseio.com",
-    projectId: "proposal-scheduler1",
-    storageBucket: "proposal-scheduler1.firebasestorage.app",
-    messagingSenderId: "111950321382",
-    appId: "Y1:111950321382:web:0ee3a4be46b15d66fa8d27"
-  };
-  const app = firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+        const tableBody = document.getElementById('scheduleTable');
 
-  // --- Add slot ---
-  const daySlotForm = document.getElementById('daySlotForm');
-  daySlotForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const day = document.getElementById('day').value;
-    const time = document.getElementById('time').value;
-    const slotRef = db.ref('days/' + day + '/slots');
-    slotRef.push(time);
-    alert('Slot added!');
-    daySlotForm.reset();
-    loadSlots();
-  });
+        function renderTable() {
+            tableBody.innerHTML = '';
+            for (const day in schedule) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${day}</td>
+                    <td><input type="number" value="${schedule[day].maxGroups}" min="1" data-day="${day}" class="maxGroupInput"></td>
+                    <td><input type="text" value="${schedule[day].slots.join(',')}" data-day="${day}" class="slotsInput"></td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
 
-  // --- Set capacity ---
-  const capacityForm = document.getElementById('capacityForm');
-  capacityForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const day = document.getElementById('capDay').value;
-    const maxGroups = parseInt(document.getElementById('maxGroups').value);
-    db.ref('days/' + day + '/maxGroups').set(maxGroups);
-    alert('Capacity set!');
-    capacityForm.reset();
-    loadSlots();
-  });
+        renderTable();
 
-  // --- Load current slots & capacities ---
-  function loadSlots() {
-    const slotsList = document.getElementById('slotsList');
-    slotsList.innerHTML = '';
-    db.ref('days').once('value', snapshot => {
-      snapshot.forEach(daySnap => {
-        const day = daySnap.key;
-        const maxGroups = daySnap.val().maxGroups || 0;
-        const slots = daySnap.val().slots || {};
-        const li = document.createElement('li');
-        li.textContent = `${day} - Max Groups: ${maxGroups}, Slots: ${Object.values(slots).join(', ')}`;
-        slotsList.appendChild(li);
-      });
-    });
-  }
+        document.getElementById('saveSchedule').addEventListener('click', () => {
+            // بروزرسانی schedule از ورودی‌ها
+            document.querySelectorAll('.maxGroupInput').forEach(input => {
+                const day = input.dataset.day;
+                schedule[day].maxGroups = parseInt(input.value);
+            });
+            document.querySelectorAll('.slotsInput').forEach(input => {
+                const day = input.dataset.day;
+                schedule[day].slots = input.value.split(',').map(s => s.trim());
+            });
+            alert('Schedule updated!');
+        });
 
-  loadSlots();
-</script>
+        // برای student.html در دسترس قرار دادن داده‌ها
+        window.adminSchedule = schedule;
+    </script>
 </body>
 </html>
